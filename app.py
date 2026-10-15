@@ -190,3 +190,93 @@ st.caption(
     "Method: LDA with 5 topics, CountVectorizer, "
     "English stop-word removal, and random_state=42."
 )
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+
+st.divider()
+st.header("Raw Word Counts vs. TF-IDF")
+
+st.write(
+    "Compare frequently used words with words that are "
+    "more distinctive across IMDb movie reviews."
+)
+
+@st.cache_data
+def calculate_tfidf(reviews):
+    tfidf_vectorizer = TfidfVectorizer(
+        stop_words="english",
+        max_features=1000,
+        token_pattern=r"(?u)\b[a-zA-Z]{2,}\b"
+    )
+
+    tfidf_matrix = tfidf_vectorizer.fit_transform(reviews)
+
+    return pd.DataFrame({
+        "Word": tfidf_vectorizer.get_feature_names_out(),
+        "TF-IDF": np.asarray(
+            tfidf_matrix.mean(axis=0)
+        ).ravel()
+    })
+
+tfidf_df = calculate_tfidf(
+    tuple(filtered_df["review"])
+)
+
+comparison_df = frequencies.merge(
+    tfidf_df,
+    on="Word",
+    how="inner"
+)
+
+comparison_df = comparison_df.rename(
+    columns={"Frequency": "Raw Count"}
+)
+
+comparison_df = comparison_df.sort_values(
+    "Raw Count",
+    ascending=False
+).head(15)
+
+st.subheader("Comparison of Top 15 Words")
+
+metric = st.radio(
+    "Choose Metric",
+    ["Raw Count", "TF-IDF"],
+    horizontal=True
+)
+
+chart_df = comparison_df.sort_values(metric)
+
+fig_comparison = px.bar(
+    chart_df,
+    x=metric,
+    y="Word",
+    orientation="h",
+    title=f"Top 15 Words by {metric}"
+)
+
+st.plotly_chart(
+    fig_comparison,
+    use_container_width=True
+)
+
+st.markdown("### What Does This Visualization Reveal?")
+st.write(
+    "Raw counts show how often words appear, while TF-IDF "
+    "reduces the influence of words that appear across many "
+    "reviews and highlights more distinctive terms."
+)
+
+st.markdown("### How Could It Mislead?")
+st.write(
+    "TF-IDF does not measure sentiment or true importance. "
+    "Also, this comparison uses the top 15 words selected "
+    "by raw frequency, so distinctive but less frequent "
+    "words may be excluded."
+)
+
+st.caption(
+    "TF-IDF scores are averaged across reviews. "
+    "Raw counts and TF-IDF scores use different scales."
+)
