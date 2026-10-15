@@ -108,3 +108,85 @@ st.write(
 
 st.subheader("Dataset Preview")
 st.dataframe(filtered_df.head(10))
+
+from sklearn.decomposition import LatentDirichletAllocation
+
+st.divider()
+st.header("Topic Modeling Explorer")
+
+st.write(
+    "Discover hidden topics in IMDb movie reviews using "
+    "Latent Dirichlet Allocation (LDA)."
+)
+
+@st.cache_resource
+def train_topic_model(reviews):
+    topic_vectorizer = CountVectorizer(
+        stop_words="english",
+        max_features=1000,
+        min_df=2,
+        token_pattern=r"(?u)\b[a-zA-Z]{2,}\b"
+    )
+
+    topic_matrix = topic_vectorizer.fit_transform(reviews)
+
+    lda = LatentDirichletAllocation(
+        n_components=5,
+        random_state=42,
+        max_iter=10
+    )
+
+    lda.fit(topic_matrix)
+
+    return lda, topic_vectorizer
+
+lda_model, topic_vectorizer = train_topic_model(
+    tuple(df["review"].str.replace(
+        r"<[^>]+>", " ", regex=True
+    ))
+)
+
+selected_topic = st.selectbox(
+    "Select Topic",
+    [f"Topic {i + 1}" for i in range(5)]
+)
+
+topic_index = int(selected_topic.split()[-1]) - 1
+
+words = topic_vectorizer.get_feature_names_out()
+topic_weights = lda_model.components_[topic_index]
+
+top_indices = topic_weights.argsort()[-10:][::-1]
+
+topic_df = pd.DataFrame({
+    "Word": words[top_indices],
+    "Weight": topic_weights[top_indices]
+}).sort_values("Weight")
+
+topic_fig = px.bar(
+    topic_df,
+    x="Weight",
+    y="Word",
+    orientation="h",
+    title=f"Top Words in {selected_topic}"
+)
+
+st.plotly_chart(topic_fig, use_container_width=True)
+
+st.markdown("### What Does This Visualization Reveal?")
+st.write(
+    "The topic model identifies groups of words that frequently "
+    "appear together in movie reviews, revealing recurring themes."
+)
+
+st.markdown("### How Could It Mislead?")
+st.write(
+    "LDA topics are statistical patterns rather than fixed meanings. "
+    "The number of topics is chosen in advance, and common words "
+    "may appear in multiple topics."
+)
+
+st.caption(
+    "Method: LDA with 5 topics, CountVectorizer, "
+    "English stop-word removal, and random_state=42."
+)
