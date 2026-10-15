@@ -59,10 +59,16 @@ st.metric("Number of Reviews", len(filtered_df))
 st.subheader("Most Frequent Words")
 
 top_n = st.slider("Number of Words", 5, 30, 15)
+import re
 
+filtered_df = filtered_df.copy()
+filtered_df["review"] = filtered_df["review"].apply(
+    lambda text: re.sub(r"<[^>]+>", " ", text)
+)
 vectorizer = CountVectorizer(
     stop_words="english",
-    max_features=1000
+    max_features=1000,
+    token_pattern=r"(?u)\b[a-zA-Z]{2,}\b"
 )
 
 word_matrix = vectorizer.fit_transform(filtered_df["review"])
